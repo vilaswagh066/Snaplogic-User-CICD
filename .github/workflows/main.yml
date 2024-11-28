@@ -1,0 +1,154 @@
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      - main
+      
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Echo Test
+      run: echo "Test is completed"
+
+    - name: Run Unit Test and Capture Output
+      id: run-unit-test
+      run: |
+        response=$(curl --location 'https://elastic.snaplogic.com/api/1/rest/slsched/feed/Partners/Nihilent/salesforce-user-data-sync/customer_tt_unittest' \
+        --header 'Authorization:  Bearer p@QWPbhEAzoeX27p#$xMuAPaZhc4or_d')
+        echo "$response"
+        echo "::set-output name=test_output::$response"
+
+    - name: Verify Unit Test Output
+      run: |
+        test_output='${{ steps.run-unit-test.outputs.test_output }}'
+        expected_output='{"http_status_code": 200}'
+        if echo "$test_output" | jq -e ".http_status_code == 200" > /dev/null; then
+          echo "Unit Test output matches expected result."
+        else
+          echo "Unit Test output does not match expected result."
+          exit 1
+        fi
+
+    - name: Run 404 Error Test and Capture Output
+      id: run-404-test
+      run: |
+        response=$(curl --location 'https://elastic.snaplogic.com/api/1/rest/slsched/feed/Partners/Nihilent/salesforce-user-data-sync/mutipleapihit_a' \
+        --header 'Authorization:  Bearer kifwUWgmBhatiIf0xlIS7m3sad4exAeE')
+        echo "$response"
+        echo "::set-output name=test_404_output::$response"
+
+    - name: Verify 404 Test Output
+      run: |
+        test_404_output='${{ steps.run-404-test.outputs.test_404_output }}'
+        expected_404_output='{
+          "http_status_code": 404,
+          "response_map": {
+            "error_list": [
+              {
+                "message": "Unknown task: Partners/Nihilent/salesforce-user-data-sync/mutipleapihit_a"
+              }
+            ]
+          }
+        }'
+        if echo "$test_404_output" | jq -e '.http_status_code == 404 and .response_map.error_list[0].message == "Unknown task: Partners/Nihilent/salesforce-user-data-sync/mutipleapihit_a"' > /dev/null; then
+          echo "404 Test output matches expected result."
+        else
+          echo "404 Test output does not match expected result."
+          exit 1
+        fi
+
+  qa-promotion:
+    if: github.ref == 'refs/heads/qa'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Set up environment variables
+      run: |
+        echo "USER=${{ secrets.USER }}" >> $GITHUB_ENV
+        echo "PASS=${{ secrets.PASS }}" >> $GITHUB_ENV
+        echo "URL=${{ vars.URL }}" >> $GITHUB_ENV
+        echo "ORG=${{ vars.ORG }}" >> $GITHUB_ENV
+        echo "PROJECT_SPACE_QA=${{ vars.PROJECT_SPACE_QA }}" >> $GITHUB_ENV
+        echo "PROJECT_QA=${{ vars.PROJECT_QA }}" >> $GITHUB_ENV
+        echo "REPO_NAME=${{ github.repository }}" >> $GITHUB_ENV
+        echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+
+    - name: Create QA Project
+      id: create-qa-project
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" -X POST ${{ env.URL }}/api/1/rest/public/assetapi/project/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }} \
+        -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
+        -d '{"permissions":[{"perms": ["R","W","X"],"subject_type": "USER","inherit": true,"subject": "'${{ env.USER }}'"}]}' \
+        --trace-ascii /dev/stdout)
+        if [ "$response" = "409" ]; then
+          echo "::set-output name=status::conflict"
+        else
+          echo "::set-output name=status::created"
+        fi
+
+    - name: Handle Conflict
+      if: steps.create-qa-project.outputs.status == 'conflict'
+      run: |
+        echo "The asset conflicts with an existing asset, so cannot create."
+        # Add any additional tasks to handle the conflict here
+
+    - name: Checkout Code to QA
+      if: steps.create-qa-project.outputs.status == 'created' || steps.create-qa-project.outputs.status == 'conflict'
+      run: |
+        curl -X POST ${{ env.URL }}/api/1/rest/public/project/checkout/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }} \
+        -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
+        -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
+        --trace-ascii /dev/stdout
+
+  prod-promotion:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Set up environment variables
+      run: |
+        echo "USER=${{ secrets.USER }}" >> $GITHUB_ENV
+        echo "PASS=${{ secrets.PASS }}" >> $GITHUB_ENV
+        echo "URL=${{ vars.URL }}" >> $GITHUB_ENV
+        echo "ORG=${{ vars.ORG }}" >> $GITHUB_ENV
+        echo "PROJECT_SPACE_PROD=${{ vars.PROJECT_SPACE_PROD }}" >> $GITHUB_ENV
+        echo "PROJECT_PROD=${{ vars.PROJECT_PROD }}" >> $GITHUB_ENV
+        echo "REPO_NAME=${{ github.repository }}" >> $GITHUB_ENV
+        echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+
+    - name: Create Production Project
+      id: create-prod-project
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" -X POST ${{ env.URL }}/api/1/rest/public/assetapi/project/${{ env.ORG }}/${{ env.PROJECT_SPACE_PROD }}/${{ env.PROJECT_PROD }} \
+        -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
+        -d '{"permissions":[{"perms": ["R","W","X"],"subject_type": "USER","inherit": true,"subject": "'${{ env.USER }}'"}]}' \
+        --trace-ascii /dev/stdout)
+        if [ "$response" = "409" ]; then
+          echo "::set-output name=status::conflict"
+        else
+          echo "::set-output name=status::created"
+        fi
+
+    - name: Handle Conflict
+      if: steps.create-prod-project.outputs.status == 'conflict'
+      run: |
+        echo "The asset conflicts with an existing asset, so cannot create."
+        # Add any additional tasks to handle the conflict here
+
+    - name: Checkout Code to Production
+      if: steps.create-prod-project.outputs.status == 'created' || steps.create-prod-project.outputs.status == 'conflict'
+      run: |
+        curl -X POST ${{ env.URL }}/api/1/rest/public/project/checkout/${{ env.ORG }}/${{ env.PROJECT_SPACE_PROD }}/${{ env.PROJECT_PROD }} \
+        -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
+        -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
+        --trace-ascii /dev/stdout
