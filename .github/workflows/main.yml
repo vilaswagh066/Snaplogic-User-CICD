@@ -1,4 +1,4 @@
-name: Test
+name: Run Curl Command
 
 on:
   push:
@@ -59,7 +59,7 @@ jobs:
           -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" \
           -H "Content-Type: application/json" \
           -d '{
-                "repo": "vilaswagh066/Snaplogic-User-CICD",
+                "repo": "snaplogic-repo",
                 "ref": "qa"
               }' \
           --trace-ascii /dev/stdout
