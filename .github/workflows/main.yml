@@ -15,17 +15,16 @@ jobs:
 
       - name: Execute Curl Command
         run: |
-         curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test123" \
-     -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" \
-     -H "Content-Type: application/json" \
-     -d '{
-           "permissions": [
-             {
-               "perms": ["R", "W", "A", "X"],
-               "subject_type": "USER",
-               "inherit": true,
-               "subject": "sanghamitra.pattanayak@nihilent.com"
-             }
-           ]
-         }'
-
+          curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test123" \
+               -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" \
+               -H "Content-Type: application/json" \
+               -d '{
+                     "permissions": [
+                       {
+                         "perms": ["R", "W", "A", "X"],
+                         "subject_type": "USER",
+                         "inherit": true,
+                         "subject": "sanghamitra.pattanayak@nihilent.com"
+                       }
+                     ]
+                   }'
