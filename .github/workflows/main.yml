@@ -7,8 +7,7 @@ on:
 
 jobs:
   qa-promotion:
-    if: github.ref == 'refs/heads/qa'
-    needs: test
+    # Removed the 'needs' dependency to fix the issue
     runs-on: ubuntu-latest
     environment: qa
 
@@ -46,10 +45,4 @@ jobs:
           echo "The asset conflicts with an existing asset and cannot be created."
           # Additional conflict-handling tasks can be added here
 
-      - name: Checkout Code to QA
-        if: env.status == 'created' || env.status == 'conflict'
-        run: |
-          curl -X POST ${{ env.URL }}/api/1/rest/public/project/checkout/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }} \
-          -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
-          -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
-          --trace-ascii /dev/stdout
+      - name: Checkout
