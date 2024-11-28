@@ -1,49 +1,64 @@
 on:
   push:
-    branches: [dev, qa, main]
-      
+    branches:
+      - dev
+      - qa
+      - main
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
     - name: Echo Test
       run: echo "Test is completed"
-      
+
   qa-promotion:
     if: github.ref == 'refs/heads/qa'
     needs: test
     runs-on: ubuntu-latest
     environment: qa
     steps:
-    - uses: actions/checkout@v2
-      
-    - name: API Call
-      env:
-        USER: ${{ secrets.USER }}
-        PASS: ${{ secrets.PASS }}
-        URL: ${{ vars.URL }}
-        ORG: ${{ vars.ORG }}
-        PROJECT_SPACE_QA: ${{ vars.PROJECT_SPACE_QA }}
-        PROJECT_QA: ${{ vars.PROJECT_QA }}
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Set up environment variables
       run: |
-        # Test auth with main API endpoint
-        auth_test=$(curl -s -w "%{http_code}" -o /dev/null \
-        -u "$USER:$PASS" \
-        "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA")
+        echo "USER=${{ secrets.USER }}" >> $GITHUB_ENV
+        echo "PASS=${{ secrets.PASS }}" >> $GITHUB_ENV
+        echo "URL=${{ vars.URL }}" >> $GITHUB_ENV
+        echo "ORG=${{ vars.ORG }}" >> $GITHUB_ENV
+        echo "PROJECT_SPACE_QA=${{ vars.PROJECT_SPACE_QA }}" >> $GITHUB_ENV
+        echo "PROJECT_QA=${{ vars.PROJECT_QA }}" >> $GITHUB_ENV
+        echo "REPO_NAME=${{ github.repository }}" >> $GITHUB_ENV
+        echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+
+    - name: Create QA Project
+      id: create-qa-project
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/api/1/rest/public/assetapi/project/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }}" \
+        -u "$USER:$PASS" -H "Content-Type: application/json" \
+        -d '{"permissions":[{"perms": ["R","W","X"],"subject_type": "USER","inherit": true,"subject": "'${{ env.USER }}'"}]}' \
+        --trace-ascii /dev/stdout)
         
-        if [ "$auth_test" != "200" ]; then
-          echo "Authentication failed with status $auth_test"
-          exit 1
+        if [ "$response" = "409" ]; then
+          echo "status=conflict" >> $GITHUB_ENV
+        elif [ "$response" = "201" ]; then
+          echo "status=created" >> $GITHUB_ENV
+        else
+          echo "status=error" >> $GITHUB_ENV
         fi
-        
-        curl -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
-        -u "$USER:$PASS" \
-        -H "Content-Type: application/json" \
-        -d "{\"permissions\":[{\"perms\":[\"R\",\"W\",\"X\"],\"subject_type\":\"USER\",\"inherit\":true,\"subject\":\"$USER\"}]}"
-        
-        curl -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
-        -u "$USER:$PASS" \
-        -H "Content-Type: application/json" \
-        -d "{\"repo\":\"${{ github.repository }}\",\"ref\":\"${{ github.ref_name }}\"}" \
-        --connect-timeout 30 \
-        --max-time 600
+
+    - name: Handle Conflict
+      if: env.status == 'conflict'
+      run: |
+        echo "The asset conflicts with an existing asset, so cannot create."
+        # Add any additional tasks to handle the conflict here
+
+    - name: Checkout Code to QA
+      if: env.status == 'created' || env.status == 'conflict'
+      run: |
+        curl -X POST "$URL/api/1/rest/public/project/checkout/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }}" \
+        -u "$USER:$PASS" -H "Content-Type: application/json" \
+        -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
+        --trace-ascii /dev/stdout
+ 
