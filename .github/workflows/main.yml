@@ -36,7 +36,7 @@ jobs:
       run: |
         response=$(curl -s -o /dev/null -w "%{http_code}" -X POST ${{ env.URL }}/api/1/rest/public/assetapi/project/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }} \
         -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
-        -d '{"permissions":[{"perms": ["R","W","X"],"subject_type": "USER","inherit": true,"subject": "'${{ env.USER }}'"}]}' \
+        -d '{"permissions":[{"perms": ["R","W","A","X"],"subject_type": "USER","inherit": true,"subject": "'${{ env.USER }}'"}]}' \
         --trace-ascii /dev/stdout)
         if [ "$response" = "409" ]; then
           echo "::set-output name=status::conflict"
