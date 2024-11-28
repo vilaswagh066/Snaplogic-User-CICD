@@ -1,60 +1,50 @@
+name: Run Curl Command
+
 on:
   push:
     branches:
-      - dev
       - qa
-      - main
-      
+
 jobs:
-  test:
+  execute-curl:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Echo Test
-      run: echo "Test is completed"
-      
-  qa-promotion:
-    if: github.ref == 'refs/heads/qa'
-    needs: test
-    runs-on: ubuntu-latest
-    environment: qa
-    steps:
-    - name: Check out repository
-      uses: actions/checkout@v2
-      
-    - name: Set up environment variables
-      run: |
-        echo "USER=${{ secrets.USER }}" >> $GITHUB_ENV
-        echo "PASS=${{ secrets.PASS }}" >> $GITHUB_ENV
-        echo "URL=${{ vars.URL }}" >> $GITHUB_ENV
-        echo "ORG=${{ vars.ORG }}" >> $GITHUB_ENV
-        echo "PROJECT_SPACE_QA=${{ vars.PROJECT_SPACE_QA }}" >> $GITHUB_ENV
-        echo "PROJECT_QA=${{ vars.PROJECT_QA }}" >> $GITHUB_ENV
-        echo "REPO_NAME=${{ github.repository }}" >> $GITHUB_ENV
-        echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
-        
-    - name: Create QA Project
-      id: create-qa-project
-      run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${URL}/api/1/rest/public/assetapi/project/${ORG}/${PROJECT_SPACE_QA}/${PROJECT_QA}" \
-        -u "${USER}:${PASS}" \
-        -H "Content-Type: application/json" \
-        -d "{\"permissions\":[{\"perms\": [\"R\",\"W\",\"X\"],\"subject_type\": \"USER\",\"inherit\": true,\"subject\": \"${USER}\"}]}" \
-        --trace-ascii /dev/stdout)
-        if [ "$response" = "409" ]; then
-          echo "status=conflict" >> $GITHUB_OUTPUT
-        else
-          echo "status=created" >> $GITHUB_OUTPUT
-        fi
-        
-    - name: Handle Conflict
-      if: steps.create-qa-project.outputs.status == 'conflict'
-      run: echo "The asset conflicts with an existing asset, so cannot create."
-      
-    - name: Checkout Code to QA
-      if: steps.create-qa-project.outputs.status == 'created' || steps.create-qa-project.outputs.status == 'conflict'
-      run: |
-        curl -X POST "${URL}/api/1/rest/public/project/checkout/${ORG}/${PROJECT_SPACE_QA}/${PROJECT_QA}" \
-        -u "${USER}:${PASS}" \
-        -H "Content-Type: application/json" \
-        -d "{\"repo\":\"${REPO_NAME}\",\"ref\":\"${BRANCH_NAME}\"}" \
-        --trace-ascii /dev/stdout
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Execute Curl Command to Create Project
+        id: create-qa-project
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test124" \
+          -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" -H "Content-Type: application/json" \
+          -d '{
+                "permissions": [
+                  {
+                    "perms": ["R", "W", "A", "X"],
+                    "subject_type": "USER",
+                    "inherit": true,
+                    "subject": "sanghamitra.pattanayak@nihilent.com"
+                  }
+                ]
+              }')
+
+          if [ "$response" = "409" ]; then
+            echo "::set-output name=status::conflict"
+          else
+            echo "::set-output name=status::created"
+          fi
+
+      - name: Handle Conflict
+        if: steps.create-qa-project.outputs.status == 'conflict'
+        run: |
+          echo "The asset conflicts with an existing asset, so cannot create."
+          # Add any additional tasks to handle the conflict here
+
+      - name: Checkout Code to QA
+        if: steps.create-qa-project.outputs.status == 'created' || steps.create-qa-project.outputs.status == 'conflict'
+        run: |
+          curl -X POST ${{ env.URL }}/api/1/rest/public/project/checkout/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }} \
+          -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
+          -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
+          --trace-ascii /dev/stdout
