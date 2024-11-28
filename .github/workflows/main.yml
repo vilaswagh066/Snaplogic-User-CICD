@@ -1,56 +1,49 @@
 on:
- push:
-   branches:
-     - dev
-     - qa
-     - main
-     
+  push:
+    branches: [dev, qa, main]
+      
 jobs:
- test:
-   runs-on: ubuntu-latest
-   steps:
-   - name: Echo Test
-     run: echo "Test is completed"
-     
- qa-promotion:
-   if: github.ref == 'refs/heads/qa'
-   needs: test
-   runs-on: ubuntu-latest
-   environment: qa
-   steps:
-   - name: Check out repository
-     uses: actions/checkout@v2
-     
-   - name: API Call
-     env:
-       USER: ${{ secrets.USER }}
-       PASS: ${{ secrets.PASS }}
-       URL: ${{ vars.URL }}
-       ORG: ${{ vars.ORG }}
-       PROJECT_SPACE_QA: ${{ vars.PROJECT_SPACE_QA }}
-       PROJECT_QA: ${{ vars.PROJECT_QA }}
-     run: |
-       # Test authentication
-       auth_test=$(curl -s -w "%{http_code}" -o /dev/null \
-       -u "$USER:$PASS" \
-       "$URL/api/1/rest/public/ping")
-       
-       if [ "$auth_test" != "200" ]; then
-         echo "Authentication failed with status $auth_test"
-         exit 1
-       fi
-       
-       # Create project
-       response=$(curl -s -o /dev/null -w "%{http_code}" \
-       -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
-       -u "$USER:$PASS" \
-       -H "Content-Type: application/json" \
-       -d "{\"permissions\":[{\"perms\":[\"R\",\"W\",\"X\"],\"subject_type\":\"USER\",\"inherit\":true,\"subject\":\"$USER\"}]}")
-       
-       # Checkout code regardless of project creation status
-       curl -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
-       -u "$USER:$PASS" \
-       -H "Content-Type: application/json" \
-       -d "{\"repo\":\"${{ github.repository }}\",\"ref\":\"${{ github.ref_name }}\"}" \
-       --connect-timeout 30 \
-       --max-time 60
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Echo Test
+      run: echo "Test is completed"
+      
+  qa-promotion:
+    if: github.ref == 'refs/heads/qa'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+    - uses: actions/checkout@v2
+      
+    - name: API Call
+      env:
+        USER: ${{ secrets.USER }}
+        PASS: ${{ secrets.PASS }}
+        URL: ${{ vars.URL }}
+        ORG: ${{ vars.ORG }}
+        PROJECT_SPACE_QA: ${{ vars.PROJECT_SPACE_QA }}
+        PROJECT_QA: ${{ vars.PROJECT_QA }}
+      run: |
+        # Test auth with main API endpoint
+        auth_test=$(curl -s -w "%{http_code}" -o /dev/null \
+        -u "$USER:$PASS" \
+        "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA")
+        
+        if [ "$auth_test" != "200" ]; then
+          echo "Authentication failed with status $auth_test"
+          exit 1
+        fi
+        
+        curl -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+        -u "$USER:$PASS" \
+        -H "Content-Type: application/json" \
+        -d "{\"permissions\":[{\"perms\":[\"R\",\"W\",\"X\"],\"subject_type\":\"USER\",\"inherit\":true,\"subject\":\"$USER\"}]}"
+        
+        curl -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+        -u "$USER:$PASS" \
+        -H "Content-Type: application/json" \
+        -d "{\"repo\":\"${{ github.repository }}\",\"ref\":\"${{ github.ref_name }}\"}" \
+        --connect-timeout 30 \
+        --max-time 600
