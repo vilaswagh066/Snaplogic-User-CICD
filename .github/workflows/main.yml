@@ -1,50 +1,56 @@
-name: Run Curl Command
-
 on:
-  push:
-    branches:
-      - qa
-
+ push:
+   branches:
+     - dev
+     - qa
+     - main
+     
 jobs:
-  execute-curl:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v2
-
-      - name: Execute Curl Command to Create Project
-        id: create-qa-project
-        run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test124" \
-          -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" -H "Content-Type: application/json" \
-          -d '{
-                "permissions": [
-                  {
-                    "perms": ["R", "W", "A", "X"],
-                    "subject_type": "USER",
-                    "inherit": true,
-                    "subject": "sanghamitra.pattanayak@nihilent.com"
-                  }
-                ]
-              }')
-
-          if [ "$response" = "409" ]; then
-            echo "::set-output name=status::conflict"
-          else
-            echo "::set-output name=status::created"
-          fi
-
-      - name: Handle Conflict
-        if: steps.create-qa-project.outputs.status == 'conflict'
-        run: |
-          echo "The asset conflicts with an existing asset, so cannot create."
-          # Add any additional tasks to handle the conflict here
-
-      - name: Checkout Code to QA
-        if: steps.create-qa-project.outputs.status == 'created' || steps.create-qa-project.outputs.status == 'conflict'
-        run: |
-          curl -X POST ${{ env.URL }}/api/1/rest/public/project/checkout/${{ env.ORG }}/${{ env.PROJECT_SPACE_QA }}/${{ env.PROJECT_QA }} \
-          -u ${{ env.USER }}:${{ env.PASS }} -H "Content-Type: application/json" \
-          -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
-          --trace-ascii /dev/stdout
+ test:
+   runs-on: ubuntu-latest
+   steps:
+   - name: Echo Test
+     run: echo "Test is completed"
+     
+ qa-promotion:
+   if: github.ref == 'refs/heads/qa'
+   needs: test
+   runs-on: ubuntu-latest
+   environment: qa
+   steps:
+   - name: Check out repository
+     uses: actions/checkout@v2
+     
+   - name: API Call
+     env:
+       USER: ${{ secrets.USER }}
+       PASS: ${{ secrets.PASS }}
+       URL: ${{ vars.URL }}
+       ORG: ${{ vars.ORG }}
+       PROJECT_SPACE_QA: ${{ vars.PROJECT_SPACE_QA }}
+       PROJECT_QA: ${{ vars.PROJECT_QA }}
+     run: |
+       # Test authentication
+       auth_test=$(curl -s -w "%{http_code}" -o /dev/null \
+       -u "$USER:$PASS" \
+       "$URL/api/1/rest/public/ping")
+       
+       if [ "$auth_test" != "200" ]; then
+         echo "Authentication failed with status $auth_test"
+         exit 1
+       fi
+       
+       # Create project
+       response=$(curl -s -o /dev/null -w "%{http_code}" \
+       -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+       -u "$USER:$PASS" \
+       -H "Content-Type: application/json" \
+       -d "{\"permissions\":[{\"perms\":[\"R\",\"W\",\"X\"],\"subject_type\":\"USER\",\"inherit\":true,\"subject\":\"$USER\"}]}")
+       
+       # Checkout code regardless of project creation status
+       curl -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+       -u "$USER:$PASS" \
+       -H "Content-Type: application/json" \
+       -d "{\"repo\":\"${{ github.repository }}\",\"ref\":\"${{ github.ref_name }}\"}" \
+       --connect-timeout 30 \
+       --max-time 60
