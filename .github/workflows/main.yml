@@ -28,7 +28,7 @@ jobs:
         id: create-qa-project
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test124" \
-          -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" -H "Content-Type: application/json" \
+          -u "sanghamitra.pattanayak@nihilent.com:Nihilent@125" -H "Content-Type: application/json" \
           -d '{
                 "permissions": [
                   {
@@ -59,7 +59,7 @@ jobs:
           -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" \
           -H "Content-Type: application/json" \
           -d '{
-                "repo": "snaplogic-repo",
+                "repo": "vilaswagh066/Snaplogic-User-CICD",
                 "ref": "qa"
               }' \
           --trace-ascii /dev/stdout
