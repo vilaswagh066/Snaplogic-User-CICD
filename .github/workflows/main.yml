@@ -54,5 +54,3 @@ jobs:
         -u "$USER:$PASS" -H "Content-Type: application/json" \
         -d '{"repo":"${{ env.REPO_NAME }}","ref":"${{ env.BRANCH_NAME }}"}' \
         --trace-ascii /dev/stdout
- 
-has context menu
