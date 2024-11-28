@@ -16,7 +16,7 @@ jobs:
       - name: Execute Curl Command
         run: |
           curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test123" \
-               -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" \
+               -u "sanghamitra.pattanayak@nihilent.com:Nihilent@1234" \
                -H "Content-Type: application/json" \
                -d '{
                      "permissions": [
