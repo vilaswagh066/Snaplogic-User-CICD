@@ -16,7 +16,7 @@ jobs:
       - name: Execute Curl Command
         run: |
           curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test123" \
-               -u "sanghamitra.pattanayak@nihilent.com:Nihilent@123" \
+               -u "vilas.wagh@nihilent.com:Vilas@123" \
                -H "Content-Type: application/json" \
                -d '{
                      "permissions": [
@@ -24,7 +24,7 @@ jobs:
                          "perms": ["R", "W", "A", "X"],
                          "subject_type": "USER",
                          "inherit": true,
-                         "subject": "sanghamitra.pattanayak@nihilent.com"
+                         "subject": "vilas.wagh@nihilent.com"
                        }
                      ]
                    }'
