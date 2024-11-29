@@ -55,7 +55,7 @@ jobs:
       - name: Checkout Code to QA
         if: env.status == 'created' || env.status == 'conflict'
         run: |
-          curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/project/checkout/Partners/Nihilent/snaplogic-user-test123" \
+          curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/project/checkout/Partners/Nihilent/snaplogic-user-test124" \
           -u "sanghamitra.pattanayak@nihilent.com:Corporation@123" \
           -H "Content-Type: application/json" \
           -d '{
