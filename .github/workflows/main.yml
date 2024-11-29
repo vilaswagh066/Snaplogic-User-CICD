@@ -13,14 +13,28 @@ jobs:
       # Set up environment variables dynamically
       - name: Set up environment variables
         run: |
+          echo "Setting up environment variables..."
           echo "USER=${{ secrets.USER }}" >> $GITHUB_ENV
           echo "PASS=${{ secrets.PASS }}" >> $GITHUB_ENV
           echo "URL=${{ vars.URL }}" >> $GITHUB_ENV
           echo "ORG=${{ vars.ORG }}" >> $GITHUB_ENV
-          echo "PROJECT_SPACE_PROD=${{ vars.PROJECT_SPACE_PROD }}" >> $GITHUB_ENV
-          echo "PROJECT_PROD=${{ vars.PROJECT_PROD }}" >> $GITHUB_ENV
+          echo "PROJECT_SPACE_QA=${{ vars.PROJECT_SPACE_QA }}" >> $GITHUB_ENV
+          echo "PROJECT_QA=${{ vars.PROJECT_QA }}" >> $GITHUB_ENV
           echo "REPO_NAME=${{ github.repository }}" >> $GITHUB_ENV
           echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "Environment variables set up successfully."
+
+      # Debugging: Echo all environment variables and secrets
+      - name: Debug Variables
+        run: |
+          echo "USER: $USER"
+          echo "PASS: $PASS"
+          echo "URL: $URL"
+          echo "ORG: $ORG"
+          echo "PROJECT_SPACE_QA: $PROJECT_SPACE_QA"
+          echo "PROJECT_QA: $PROJECT_QA"
+          echo "REPO_NAME: $REPO_NAME"
+          echo "BRANCH_NAME: $BRANCH_NAME"
 
       # Check out the repository
       - name: Check out repository
@@ -30,6 +44,7 @@ jobs:
       - name: Execute Curl Command to Create Project
         id: create-qa-project
         run: |
+          echo "Executing Curl command to create the project..."
           response=$(curl -v -s -o /dev/null -w "%{http_code}" -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
           -u "$USER:$PASS" -H "Content-Type: application/json" \
           -d '{
@@ -43,28 +58,33 @@ jobs:
                 ]
               }')
 
+          echo "Response code: $response"
+
           if [ "$response" = "409" ]; then
             echo "status=conflict" >> $GITHUB_ENV
+            echo "Project creation conflict detected."
           else
             echo "status=created" >> $GITHUB_ENV
+            echo "Project created successfully."
           fi
 
       # Handle Conflict
       - name: Handle Conflict
         if: env.status == 'conflict'
         run: |
-          echo "The asset conflicts with an existing asset, so cannot create."
-          # Add any additional tasks to handle the conflict here
+          echo "Handling conflict situation..."
+          echo "The asset conflicts with an existing asset. Taking appropriate actions."
 
       # Checkout Code to QA
       - name: Checkout Code to QA
         if: env.status == 'created' || env.status == 'conflict'
         run: |
-          curl -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+          echo "Checking out code to QA..."
+          curl -v -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
           -u "$USER:$PASS" \
           -H "Content-Type: application/json" \
           -d '{
-                "repo": "vilaswagh066/Snaplogic-User-CICD",
-                "ref": "qa"
+                "repo": "'"$REPO_NAME"'",
+                "ref": "'"$BRANCH_NAME"'"
               }' \
           --trace-ascii /dev/stdout
