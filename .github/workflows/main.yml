@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Set up environment variables dynamically
       - name: Set up environment variables
         run: |
           echo "USER=${{ secrets.USER }}" >> $GITHUB_ENV
@@ -21,21 +22,23 @@ jobs:
           echo "REPO_NAME=${{ github.repository }}" >> $GITHUB_ENV
           echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
 
+      # Check out the repository
       - name: Check out repository
         uses: actions/checkout@v2
 
+      # Execute Curl Command to Create Project
       - name: Execute Curl Command to Create Project
         id: create-qa-project
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://elastic.snaplogic.com/api/1/rest/public/assetapi/project/Partners/Nihilent/snaplogic-user-test124" \
-          -u "sanghamitra.pattanayak@nihilent.com:Corporation@123" -H "Content-Type: application/json" \
+          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+          -u "$USER:$PASS" -H "Content-Type: application/json" \
           -d '{
                 "permissions": [
                   {
                     "perms": ["R", "W", "A", "X"],
                     "subject_type": "USER",
                     "inherit": true,
-                    "subject": "sanghamitra.pattanayak@nihilent.com"
+                    "subject": "'"$USER"'"
                   }
                 ]
               }')
@@ -46,17 +49,19 @@ jobs:
             echo "status=created" >> $GITHUB_ENV
           fi
 
+      # Handle Conflict
       - name: Handle Conflict
         if: env.status == 'conflict'
         run: |
           echo "The asset conflicts with an existing asset, so cannot create."
           # Add any additional tasks to handle the conflict here
 
+      # Checkout Code to QA
       - name: Checkout Code to QA
         if: env.status == 'created' || env.status == 'conflict'
         run: |
-          curl -X POST "https://elastic.snaplogic.com/api/1/rest/public/project/checkout/Partners/Nihilent/snaplogic-user-test124" \
-          -u "sanghamitra.pattanayak@nihilent.com:Corporation@123" \
+          curl -X POST "$URL/api/1/rest/public/project/checkout/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+          -u "$USER:$PASS" \
           -H "Content-Type: application/json" \
           -d '{
                 "repo": "vilaswagh066/Snaplogic-User-CICD",
