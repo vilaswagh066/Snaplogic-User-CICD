@@ -21,7 +21,7 @@ jobs:
                -d '{
                      "permissions": [
                        {
-                         "perms": ["R", "W", "A", "X"],
+                         "perms": ["R", "W"],
                          "subject_type": "USER",
                          "inherit": true,
                          "subject": "vilas.wagh@nihilent.com"
