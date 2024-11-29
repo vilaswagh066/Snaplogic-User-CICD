@@ -30,7 +30,7 @@ jobs:
       - name: Execute Curl Command to Create Project
         id: create-qa-project
         run: |
-          response=$(curl -s ---v -o /dev/null -w "%{http_code}" -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
+          response=$(curl -v -s -o /dev/null -w "%{http_code}" -X POST "$URL/api/1/rest/public/assetapi/project/$ORG/$PROJECT_SPACE_QA/$PROJECT_QA" \
           -u "$USER:$PASS" -H "Content-Type: application/json" \
           -d '{
                 "permissions": [
